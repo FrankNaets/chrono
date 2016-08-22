@@ -182,7 +182,7 @@ void create_jengatower_bodies(ChSystem& mphysicalSystem) {
                                                          true,   // collide enable?
                                                          true);  // visualization?
     mrigidBall->SetMaterialSurface(mmaterial);
-    mrigidBall->SetPos(ChVector<>(0, 3, -8));
+    mrigidBall->SetPos(ChVector<>(0, 3, -20));
     mrigidBall->SetPos_dt(ChVector<>(0, 0, 2));           // set initial speed
     mrigidBall->GetMaterialSurface()->SetFriction(0.4f);  // use own (not shared) matrial properties
     mrigidBall->GetMaterialSurface()->SetCompliance(0.0);
@@ -206,19 +206,23 @@ int main(int argc, char* argv[]) {
     ChIrrApp application(&mphysicalSystem, L"Bricks test", core::dimension2d<u32>(800, 600), false, true);
 
     // Easy shortcuts to add camera, lights, logo and sky in Irrlicht scene:
-    ChIrrWizard::add_typical_Logo(application.GetDevice());
+    /* ChIrrWizard::add_typical_Logo(application.GetDevice());
     ChIrrWizard::add_typical_Sky(application.GetDevice());
     ChIrrWizard::add_typical_Lights(application.GetDevice(), core::vector3df(70.f, 120.f, -90.f),
                                     core::vector3df(30.f, 80.f, 60.f), 290, 190);
-    ChIrrWizard::add_typical_Camera(application.GetDevice(), core::vector3df(-15, 14, -30), core::vector3df(0, 5, 0));
+    ChIrrWizard::add_typical_Camera(application.GetDevice(), core::vector3df(-15, 14, -30), core::vector3df(0, 5, 0)); */
+	application.AddTypicalSky();
+	application.AddTypicalLights();
+	application.AddTypicalCamera(core::vector3df(-15, 14, -30));
+
 
     //
     // HERE YOU POPULATE THE MECHANICAL SYSTEM OF CHRONO...
     //
 
     // Create all the rigid bodies.
-    create_wall_bodies(mphysicalSystem);
-    // create_jengatower_bodies (mphysicalSystem);
+    // create_wall_bodies(mphysicalSystem);
+    create_jengatower_bodies (mphysicalSystem);
 
     // Use this function for adding a ChIrrNodeAsset to all items
     // If you need a finer control on which item really needs a visualization proxy in
@@ -250,6 +254,7 @@ int main(int argc, char* argv[]) {
 
     while (application.GetDevice()->run()) {
         application.GetVideoDriver()->beginScene(true, true, SColor(255, 140, 161, 192));
+		//application.BeginScene(); 
 
         ChIrrTools::drawGrid(application.GetVideoDriver(), 5, 5, 20, 20,
                              ChCoordsys<>(ChVector<>(0, 0.04, 0), Q_from_AngAxis(CH_C_PI / 2, VECT_X)),

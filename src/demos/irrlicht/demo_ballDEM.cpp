@@ -17,7 +17,7 @@
 //
 //   CHRONO
 //   ------
-//   Multibody dinamics engine
+//   Multibody dynamics engine
 //
 ///////////////////////////////////////////////////
 
@@ -41,6 +41,7 @@ using namespace irr::video;
 using namespace irr::io;
 using namespace irr::gui;
 
+// Additional function to define the lower body on which the ball bounces? 
 void AddWall(std::shared_ptr<ChBody> body, const ChVector<>& dim, const ChVector<>& loc) {
     body->GetCollisionModel()->AddBox(dim.x, dim.y, dim.z, loc);
 
@@ -52,108 +53,115 @@ void AddWall(std::shared_ptr<ChBody> body, const ChVector<>& dim, const ChVector
     body->AddAsset(box);
 }
 
+void CreateModel(ChSystemDEM& msystem) {
+
+	// Parameters for the falling ball
+	double gravity = -9.81;
+	int ballId = 100;
+	double radius = 1;
+	double mass = 1000;
+	ChVector<> pos(0, 2, 0); // initial position?
+	ChQuaternion<> rot(1, 0, 0, 0); // initial rotation?
+	ChVector<> init_vel(0, 0, 0); // initial velocity
+
+	// Parameters for the containing bin
+	int binId = 200;
+	double width = 2;
+	double length = 2;
+	double height = 1;
+	double thickness = 0.1;
+
+	msystem.SetContactForceModel(ChSystemDEM::ContactForceModel::Hertz);
+	msystem.SetAdhesionForceModel(ChSystemDEM::AdhesionForceModel::Constant);
+
+	msystem.Set_G_acc(ChVector<>(0, gravity, 0));
+
+	// Create a material (will be used by both objects)
+	auto material = std::make_shared<ChMaterialSurfaceDEM>();
+	material->SetRestitution(0.01f);
+	material->SetFriction(0.4f);
+	material->SetAdhesion(0);  // Magnitude of the adhesion in Constant adhesion model
+
+	// Create the falling ball
+	auto ball = std::make_shared<ChBody>(ChMaterialSurfaceBase::DEM);
+
+	ball->SetIdentifier(ballId);
+	ball->SetMass(mass);
+	ball->SetPos(pos);
+	ball->SetRot(rot);
+	ball->SetPos_dt(init_vel);
+	// ball->SetWvel_par(ChVector<>(0,0,3));
+	ball->SetBodyFixed(false);
+	ball->SetMaterialSurface(material);
+
+	ball->SetCollide(true);
+
+	ball->GetCollisionModel()->ClearModel();
+	ball->GetCollisionModel()->AddSphere(radius);
+	ball->GetCollisionModel()->BuildModel();
+
+	ball->SetInertiaXX(0.4 * mass * radius * radius * ChVector<>(1, 1, 1));
+
+	auto sphere = std::make_shared<ChSphereShape>();
+	sphere->GetSphereGeometry().rad = radius;
+	ball->AddAsset(sphere);
+
+	auto mtexture = std::make_shared<ChTexture>();
+	mtexture->SetTextureFilename(GetChronoDataFile("bluwhite.png"));
+	ball->AddAsset(mtexture);
+
+	msystem.AddBody(ball);
+
+	// Create container
+	auto bin = std::make_shared<ChBody>(ChMaterialSurfaceBase::DEM);
+
+	bin->SetIdentifier(binId);
+	bin->SetMass(1);
+	bin->SetPos(ChVector<>(0, 0, 0));
+	bin->SetRot(ChQuaternion<>(1, 0, 0, 0));
+	bin->SetCollide(true);
+	bin->SetBodyFixed(true);
+	bin->SetMaterialSurface(material);
+
+	bin->GetCollisionModel()->ClearModel();
+	AddWall(bin, ChVector<>(width, thickness, length), ChVector<>(0, 0, 0));
+	// AddWall(bin, ChVector<>(thickness, height, length), ChVector<>(-width + thickness, height, 0));
+	// AddWall(bin, ChVector<>(thickness, height, length), ChVector<>(width - thickness, height, 0));
+	// AddWall(bin, ChVector<>(width, height, thickness), ChVector<>(0, height, -length + thickness));
+	// AddWall(bin, ChVector<>(width, height, thickness), ChVector<>(0, height, length - thickness));
+	bin->GetCollisionModel()->BuildModel();
+
+	msystem.AddBody(bin);
+
+}
+
+
+// Start of the main program:
 int main(int argc, char* argv[]) {
     // Simulation parameters
-    double gravity = -9.81;
     double time_step = 0.00001;
     double out_step = 2000 * time_step;
-
-    // Parameters for the falling ball
-    int ballId = 100;
-    double radius = 1;
-    double mass = 1000;
-    ChVector<> pos(0, 2, 0);
-    ChQuaternion<> rot(1, 0, 0, 0);
-    ChVector<> init_vel(0, 0, 0);
-
-    // Parameters for the containing bin
-    int binId = 200;
-    double width = 2;
-    double length = 2;
-    double height = 1;
-    double thickness = 0.1;
-
+	
     // Create the system
-    ChSystemDEM msystem;
+    ChSystemDEM msystem; // the system is declared as a ChSystemDEM
 
-    // The following two lines are optional, since they are the default options. They are added for future reference,
-    // i.e. when needed to change those models.
-    msystem.SetContactForceModel(ChSystemDEM::ContactForceModel::Hertz);
-    msystem.SetAdhesionForceModel(ChSystemDEM::AdhesionForceModel::Constant);
-
-    msystem.Set_G_acc(ChVector<>(0, gravity, 0));
+	CreateModel(msystem);
+	
 
     // Create the Irrlicht visualization
     ChIrrApp application(&msystem, L"DEM demo", core::dimension2d<u32>(800, 600), false, true);
 
     // Easy shortcuts to add camera, lights, logo and sky in Irrlicht scene
-    application.AddTypicalLogo();
+    // application.AddTypicalLogo();
     application.AddTypicalSky();
     application.AddTypicalLights();
     application.AddTypicalCamera(core::vector3df(0, 3, -6));
 
     // This means that contactforces will be shown in Irrlicht application
-    application.SetSymbolscale(1e-4);
-    application.SetContactsDrawMode(ChIrrTools::eCh_ContactsDrawMode::CONTACT_FORCES);
+    // application.SetSymbolscale(1e-4);
+    // application.SetContactsDrawMode(ChIrrTools::eCh_ContactsDrawMode::CONTACT_FORCES);
 
-    // Create a material (will be used by both objects)
-    auto material = std::make_shared<ChMaterialSurfaceDEM>();
-    material->SetRestitution(0.1f);
-    material->SetFriction(0.4f);
-    material->SetAdhesion(0);  // Magnitude of the adhesion in Constant adhesion model
-
-    // Create the falling ball
-    auto ball = std::make_shared<ChBody>(ChMaterialSurfaceBase::DEM);
-
-    ball->SetIdentifier(ballId);
-    ball->SetMass(mass);
-    ball->SetPos(pos);
-    ball->SetRot(rot);
-    ball->SetPos_dt(init_vel);
-    // ball->SetWvel_par(ChVector<>(0,0,3));
-    ball->SetBodyFixed(false);
-    ball->SetMaterialSurface(material);
-
-    ball->SetCollide(true);
-
-    ball->GetCollisionModel()->ClearModel();
-    ball->GetCollisionModel()->AddSphere(radius);
-    ball->GetCollisionModel()->BuildModel();
-
-    ball->SetInertiaXX(0.4 * mass * radius * radius * ChVector<>(1, 1, 1));
-
-    auto sphere = std::make_shared<ChSphereShape>();
-    sphere->GetSphereGeometry().rad = radius;
-    ball->AddAsset(sphere);
-
-    auto mtexture = std::make_shared<ChTexture>();
-    mtexture->SetTextureFilename(GetChronoDataFile("bluwhite.png"));
-    ball->AddAsset(mtexture);
-
-    msystem.AddBody(ball);
-
-    // Create container
-    auto bin = std::make_shared<ChBody>(ChMaterialSurfaceBase::DEM);
-
-    bin->SetIdentifier(binId);
-    bin->SetMass(1);
-    bin->SetPos(ChVector<>(0, 0, 0));
-    bin->SetRot(ChQuaternion<>(1, 0, 0, 0));
-    bin->SetCollide(true);
-    bin->SetBodyFixed(true);
-    bin->SetMaterialSurface(material);
-
-    bin->GetCollisionModel()->ClearModel();
-    AddWall(bin, ChVector<>(width, thickness, length), ChVector<>(0, 0, 0));
-    // AddWall(bin, ChVector<>(thickness, height, length), ChVector<>(-width + thickness, height, 0));
-    // AddWall(bin, ChVector<>(thickness, height, length), ChVector<>(width - thickness, height, 0));
-    // AddWall(bin, ChVector<>(width, height, thickness), ChVector<>(0, height, -length + thickness));
-    // AddWall(bin, ChVector<>(width, height, thickness), ChVector<>(0, height, length - thickness));
-    bin->GetCollisionModel()->BuildModel();
-
-    msystem.AddBody(bin);
-
-    // Complete asset construction
+    // Complete asset construction - standard call??
     application.AssetBindAll();
     application.AssetUpdateAll();
 
